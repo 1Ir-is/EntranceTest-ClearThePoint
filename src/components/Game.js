@@ -15,6 +15,7 @@ const Game = () => {
   const [gameOver, setGameOver] = useState(false);
   const [allCleared, setAllCleared] = useState(false);
   const [noPointsEntered, setNoPointsEntered] = useState(false);
+  const [pointsExceedLimit, setPointsExceedLimit] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
 
   useEffect(() => {
@@ -35,19 +36,42 @@ const Game = () => {
     }
   }, [remainingPoints, isPlaying, gameOver]);
 
-  // Function to generate random positions within the container
-  const getRandomPosition = () => {
-    const x = Math.floor(Math.random() * 85);
-    const y = Math.floor(Math.random() * 85);
-    return { top: `${y}%`, left: `${x}%` };
+  // Function to calculate the distance between two points
+  const calculateDistance = (point1, point2) => {
+    const xDiff = point1.x - point2.x;
+    const yDiff = point1.y - point2.y;
+    return Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+  };
+
+  // Function to generate random positions within the container with spacing logic
+  const getRandomPosition = (existingPoints) => {
+    let newPosition;
+    let tooClose = true;
+
+    const isTooClose = (point) =>
+      calculateDistance(newPosition, point.position) < 10;
+
+    while (tooClose) {
+      const x = Math.floor(Math.random() * 85);
+      const y = Math.floor(Math.random() * 85);
+      newPosition = { x, y, top: `${y}%`, left: `${x}%` };
+
+      tooClose = existingPoints.some(isTooClose);
+    }
+
+    return newPosition;
   };
 
   const startGame = () => {
     if (points > 0) {
-      const pointArray = Array.from({ length: points }, (_, i) => ({
-        id: i + 1,
-        position: getRandomPosition(),
-      }));
+      const pointArray = [];
+      for (let i = 0; i < points; i++) {
+        const newPoint = {
+          id: i + 1,
+          position: getRandomPosition(pointArray),
+        };
+        pointArray.push(newPoint);
+      }
       setRemainingPoints(pointArray);
       setIsPlaying(true);
       setNextToClear(1);
@@ -78,6 +102,16 @@ const Game = () => {
     }
   };
 
+  const handleInputChange = (e) => {
+    const value = Number(e.target.value);
+    if (value > 50) {
+      setPointsExceedLimit(true);
+      setPoints(50);
+    } else if (value >= 0) {
+      setPoints(value);
+    }
+  };
+
   return showGuide ? (
     <Guide onStartGame={() => setShowGuide(false)} />
   ) : (
@@ -89,12 +123,7 @@ const Game = () => {
           type="number"
           className="border p-1"
           value={points}
-          onChange={(e) => {
-            const value = Number(e.target.value);
-            if (value >= 0) {
-              setPoints(value);
-            }
-          }}
+          onChange={handleInputChange}
           disabled={isPlaying}
           style={{ width: 100 }}
           min={0}
@@ -113,7 +142,7 @@ const Game = () => {
         {isPlaying ? "Restart" : "Play"}
       </Button>
 
-      <div className="relative w-96 h-96 border bg-white">
+      <div className="relative w-full max-w-[600px] h-[60vw] max-h-[600px] border bg-white">
         {remainingPoints.length > 0 ? (
           remainingPoints.map((point) => (
             <div
@@ -181,6 +210,26 @@ const Game = () => {
         onCancel={() => setNoPointsEntered(false)}
       >
         <p>Please enter a valid number of points before starting the game.</p>
+      </Modal>
+
+      {/* Modal for Exceeding Point Limit */}
+      <Modal
+        title={
+          <>
+            <ExclamationCircleOutlined
+              style={{ color: "red", marginRight: 8 }}
+            />
+            Exceeds Point Limit
+          </>
+        }
+        visible={pointsExceedLimit}
+        onOk={() => setPointsExceedLimit(false)}
+        onCancel={() => setPointsExceedLimit(false)}
+      >
+        <p>
+          The number of points cannot exceed 50. Please enter a number less than
+          or equal to 50.
+        </p>
       </Modal>
     </div>
   );
